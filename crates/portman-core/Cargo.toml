@@ -1,0 +1,23 @@
+[package]
+name = "portman-core"
+description = "Per-worktree port leases plus a live view of the dev servers using them"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+# preserve_order: services keep manifest order, exactly like Python's tomllib dict.
+toml = { version = "0.9", features = ["preserve_order"] }
+indexmap = { version = "2", features = ["serde"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+walkdir = "2"
+regex = "1"
+libc = "0.2"
+libproc = "0.14"
+mach2 = "0.5"
+
+[dev-dependencies]
+tempfile = "3"
