@@ -35,7 +35,8 @@ cargo check -q --workspace   # refreshes Cargo.lock
 cargo test -q --workspace --exclude portman-app
 
 git add Cargo.toml Cargo.lock app/package.json app/package-lock.json
-git commit -q -m "Release $tag"
+# Releasing the version already on main (e.g. the first release) has no bump.
+git diff --cached --quiet || git commit -q -m "Release $tag"
 git tag -a "$tag" -m "Portman $tag"
 git push -q origin main "$tag"
 
