@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Main window: core events/commands only. No fs, shell or opener access; URLs, reveal and clipboard go through app commands.",
+  "windows": ["main"],
+  "permissions": ["core:default", "notification:default"]
+}

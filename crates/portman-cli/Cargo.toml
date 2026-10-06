@@ -1,0 +1,20 @@
+[package]
+name = "portman-cli"
+description = "portman — per-worktree dev-server port leases, reconciled against reality"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "portman"
+path = "src/main.rs"
+
+[dependencies]
+portman-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+indexmap = "2"
+
+[dev-dependencies]
+tempfile = "3"
