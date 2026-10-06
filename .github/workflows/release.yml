@@ -1,0 +1,96 @@
+# Release: push a `vX.Y.Z` tag (scripts/release.sh does this) and this builds
+# a universal (Apple Silicon + Intel) Portman.dmg and a `portman` CLI tarball,
+# then publishes both on a GitHub Release for the tag.
+#
+# Builds are unsigned unless the Apple signing secrets below are set; an
+# unsigned app needs right-click → Open (or `xattr -dr com.apple.quarantine
+# /Applications/Portman.app`) on first launch.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to (re)build, e.g. v0.3.0"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Check tag matches the workspace version
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          if [ "v$version" != "$TAG" ]; then
+            echo "::error::tag $TAG does not match Cargo.toml version $version"
+            exit 1
+          fi
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Test
+        run: cargo test --workspace --exclude portman-app
+
+      - name: Install app dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: Build Portman.dmg and create the release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Optional code signing + notarization. Add these repo secrets to
+          # enable; leave them unset for an unsigned build.
+          # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          projectPath: app
+          args: --target universal-apple-darwin --bundles dmg
+          tagName: ${{ env.TAG }}
+          releaseName: Portman ${{ env.TAG }}
+          releaseBody: |
+            **Portman.dmg**: menu-bar app (universal, macOS 13+). Unsigned: on first launch, right-click → Open.
+            **portman-${{ env.TAG }}-macos-universal.tar.gz**: the `portman` CLI.
+          releaseDraft: false
+          prerelease: false
+
+      - name: Build the universal CLI
+        run: |
+          cargo build --release -p portman-cli --target aarch64-apple-darwin
+          cargo build --release -p portman-cli --target x86_64-apple-darwin
+          mkdir -p dist
+          lipo -create -output dist/portman \
+            target/aarch64-apple-darwin/release/portman \
+            target/x86_64-apple-darwin/release/portman
+          tar -C dist -czf "dist/portman-$TAG-macos-universal.tar.gz" portman
+          shasum -a 256 "dist/portman-$TAG-macos-universal.tar.gz"
+
+      - name: Attach the CLI to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$TAG" "dist/portman-$TAG-macos-universal.tar.gz" --clobber

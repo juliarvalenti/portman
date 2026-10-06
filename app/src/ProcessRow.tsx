@@ -94,7 +94,17 @@ export function ProcessRow({
         title={title}
       >
         <span className={`text-[10px] ${proc.stale ? "text-amber-500" : "text-emerald-500"}`}>●</span>
-        <span className="w-36 truncate font-medium">{proc.name}</span>
+        <span className="w-36 truncate font-medium">
+          {proc.name}
+          {proc.pids.length > 1 && (
+            <span
+              className="ml-1 text-xs font-normal text-zinc-400"
+              title={`Memory and CPU include ${proc.pids.length - 1} child process${proc.pids.length > 2 ? "es" : ""}`}
+            >
+              +{proc.pids.length - 1}
+            </span>
+          )}
+        </span>
         <span className="flex w-36 gap-1.5 truncate font-mono text-xs">
           {proc.listening.length === 0 && <span className="text-zinc-400">—</span>}
           {proc.listening.map((p) => (

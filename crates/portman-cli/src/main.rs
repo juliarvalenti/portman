@@ -280,7 +280,7 @@ fn ps_row(d: &DevProcess, indent: &str) -> String {
     format!(
         "{indent}{:>7}  {} {} {:>8} {:>4.0}% {:>5}  {stale}{app}",
         d.pid,
-        pad(&truncate(&d.name, 15), 15),
+        pad(&name_with_children(d), 15),
         pad(&truncate(if ports.is_empty() { "-" } else { &ports }, 15), 15),
         fmt::bytes(d.footprint_bytes),
         d.cpu_pct,
@@ -288,6 +288,18 @@ fn ps_row(d: &DevProcess, indent: &str) -> String {
     )
     .trim_end()
     .to_string()
+}
+
+/// `next-server +2`: MEM and CPU include the server's child processes, so
+/// say so — otherwise the row looks off next to `top`'s per-process numbers.
+fn name_with_children(d: &DevProcess) -> String {
+    match d.pids.len().saturating_sub(1) {
+        0 => truncate(&d.name, 15),
+        n => {
+            let suffix = format!(" +{n}");
+            format!("{}{suffix}", truncate(&d.name, 15 - suffix.len()))
+        }
+    }
 }
 
 fn truncate(s: &str, n: usize) -> String {

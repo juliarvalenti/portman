@@ -296,6 +296,7 @@ impl Sampler {
             };
             let app_bundle = app_bundle_name(&r.proc.exe);
             let stoppable = app_bundle.is_none() && r.proc.pid > 1;
+            let reapable = stoppable && (attrs[root].is_some() || r.cwd.as_deref().is_some_and(is_temp_dir));
             let dp = DevProcess {
                 pid: r.proc.pid,
                 pids: members.iter().map(|&i| devs[i].proc.pid).collect(),
@@ -308,11 +309,12 @@ impl Sampler {
                 started_at: r.proc.started_at,
                 uptime_secs: uptime.as_secs(),
                 idle_secs,
-                // `.app` processes are context only; flagging them stale is noise.
-                stale: if stoppable { self.stale_reason(uptime, idle_secs, footprint) } else { None },
+                // Only reap candidates can be stale: an `.app` or a long-lived
+                // service (Homebrew postgres) being up for days is expected.
+                stale: if reapable { self.stale_reason(uptime, idle_secs, footprint) } else { None },
                 lease_match: LeaseMatch::NoLease,
                 stoppable,
-                reapable: stoppable && (attrs[root].is_some() || r.cwd.as_deref().is_some_and(is_temp_dir)),
+                reapable,
                 app_bundle,
                 history,
             };
@@ -528,7 +530,9 @@ fn lsof_by_pid() -> HashMap<i32, Vec<u16>> {
 }
 
 fn is_system_exe(exe: &str) -> bool {
-    SYSTEM_PREFIXES.iter().any(|p| exe.starts_with(p))
+    // Simulator runtimes ship their own copy of the OS's daemons
+    // (siriactionsd, ...), under /Library or ~/Library/Developer.
+    SYSTEM_PREFIXES.iter().any(|p| exe.starts_with(p)) || exe.contains("/Developer/CoreSimulator/")
 }
 
 /// Docker's own processes publish container ports; containers are listed

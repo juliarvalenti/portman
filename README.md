@@ -100,6 +100,26 @@ and the Rust binary through the same claim/env/show/ls scenarios. It
 compares stdout, stderr, exit codes and the lock files written, byte for
 byte (`ls` may only append MEM / UP). It skips if the script is absent.
 
+## Release
+
+```sh
+scripts/release.sh patch        # or minor | major | 0.3.0
+```
+
+This bumps the version (the workspace `Cargo.toml` is the source of truth;
+the app reads it from Cargo, and `app/package.json` is kept in step). It runs
+the tests, commits, tags `vX.Y.Z` and pushes from an up-to-date `main`. The
+tag triggers `.github/workflows/release.yml`, which builds a universal
+`Portman.dmg` plus a `portman-vX.Y.Z-macos-universal.tar.gz` CLI and
+publishes both on a GitHub Release.
+
+Builds are unsigned until the Apple signing secrets in the workflow are set,
+so on first launch right-click → Open (or
+`xattr -dr com.apple.quarantine /Applications/Portman.app`).
+
+`scripts/build-dmg.sh [--universal]` builds the DMG locally into
+`target/**/bundle/dmg/`.
+
 ## Install
 
 Once you're happy with parity, point the existing symlink at the Rust build:
